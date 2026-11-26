@@ -1,0 +1,37 @@
+name: Build vino-wine
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    # Wine for macOS is x86_64 code (Apple Silicon Macs run it through Rosetta), so build on Intel
+    runs-on: macos-15-intel
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools and libraries
+        run: brew install bison flex mingw-w64 pkgconf freetype gnutls sdl2 molten-vk gettext
+
+      - name: Build, package and self-test
+        run: ./build.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vino-wine
+          path: out/vino-wine-*.tar.xz*
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" out/vino-wine-*.tar.xz out/vino-wine-*.tar.xz.sha256 work/crossover-sources-*.tar.gz \
+            --title "vino-wine $GITHUB_REF_NAME" \
+            --notes "CodeWeavers' CrossOver Wine, built for Vino with MSync. Wine is LGPL 2.1; the exact source used is attached (crossover-sources-*.tar.gz)."

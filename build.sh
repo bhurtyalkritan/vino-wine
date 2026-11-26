@@ -26,17 +26,27 @@ echo "== Libraries Wine loads, renamed to @rpath so they're found inside the pac
 # Wine records each library's install name at configure time and loads it by that name later,
 # so these must carry @rpath names before configure runs.
 copy_lib() {
-    local ref=$1 name
+    local ref=$1 name src
     name=$(basename "$ref")
     [ -f "$DEPS/$name" ] && return
-    cp "$(realpath "$ref")" "$DEPS/$name"
+    src=$(realpath "$ref")
+    cp "$src" "$DEPS/$name"
     chmod u+w "$DEPS/$name"
     install_name_tool -id "@rpath/$name" "$DEPS/$name"
     install_name_tool -add_rpath @loader_path "$DEPS/$name" 2>/dev/null || true
-    otool -L "$DEPS/$name" | tail -n +2 | awk '{print $1}' | grep "^$BREW/" | while read -r dep; do
-        [ "$(basename "$dep")" = "$name" ] && continue
-        copy_lib "$dep"
-        install_name_tool -change "$dep" "@rpath/$(basename "$dep")" "$DEPS/$name"
+    # `|| true`: a library with no Homebrew dependencies is fine, not a failed pipeline
+    otool -L "$DEPS/$name" | tail -n +2 | awk '{print $1}' | { grep -E "^($BREW/|@rpath/)" || true; } | while read -r dep; do
+        local base found
+        base=$(basename "$dep")
+        [ "$base" = "$name" ] && continue
+        if [[ $dep == @rpath/* ]]; then  # already relative: just bring the library along
+            found=$(dirname "$src")/$base
+            [ -f "$found" ] || found=$BREW/lib/$base
+            copy_lib "$found"
+        else
+            copy_lib "$dep"
+            install_name_tool -change "$dep" "@rpath/$base" "$DEPS/$name"
+        fi
     done
 }
 for lib in freetype/lib/libfreetype.6.dylib gnutls/lib/libgnutls.30.dylib sdl2/lib/libSDL2-2.0.0.dylib molten-vk/lib/libMoltenVK.dylib; do

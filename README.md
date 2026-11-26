@@ -26,5 +26,9 @@ GitHub Actions runs the same script (`.github/workflows/build.yml`); pushing a `
 
 ## Licenses
 
-Wine is LGPL 2.1, © the Wine project and CodeWeavers. The bundled FreeType, GnuTLS, SDL2 and MoltenVK keep their own
-licenses. The build scripts here are MIT.
+Wine is LGPL 2.1, © the Wine project and CodeWeavers; vino-wine builds CodeWeavers' published source unmodified, and each
+release attaches that exact source. The bundled libraries (FreeType, GnuTLS, SDL2, MoltenVK and what they depend on) keep
+their own licenses: each build lists them in `share/licenses/LIBRARIES.txt` with their license files, and each release
+attaches the source of the (L)GPL ones. The build scripts here are MIT.
+
+vino-wine is not affiliated with or endorsed by CodeWeavers. CrossOver and CodeWeavers are trademarks of CodeWeavers, Inc.

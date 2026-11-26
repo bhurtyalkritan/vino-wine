@@ -31,6 +31,7 @@ copy_lib() {
     [ -f "$DEPS/$name" ] && return
     src=$(realpath "$ref")
     cp "$src" "$DEPS/$name"
+    echo "$src" >> "$WORK/deps/sources.txt"  # licenses.sh finds each library's license from this
     chmod u+w "$DEPS/$name"
     install_name_tool -id "@rpath/$name" "$DEPS/$name"
     install_name_tool -add_rpath @loader_path "$DEPS/$name" 2>/dev/null || true
@@ -49,6 +50,7 @@ copy_lib() {
         fi
     done
 }
+rm -rf "$DEPS" && mkdir -p "$DEPS" && : > "$WORK/deps/sources.txt"
 for lib in freetype/lib/libfreetype.6.dylib gnutls/lib/libgnutls.30.dylib sdl2/lib/libSDL2-2.0.0.dylib molten-vk/lib/libMoltenVK.dylib; do
     copy_lib "$BREW/opt/$lib"
 done
@@ -96,7 +98,12 @@ vino-wine is CodeWeavers' CrossOver Wine $CX_VERSION, built unmodified by https:
 Wine is licensed under the LGPL 2.1 (wine-COPYING.LIB). The exact source used is
 https://media.codeweavers.com/pub/crossover/source/crossover-sources-$CX_VERSION.tar.gz
 (sha256 $CX_SHA256), also attached to each vino-wine release.
+The bundled libraries and their licenses are listed in LIBRARIES.txt.
+
+vino-wine is not affiliated with or endorsed by CodeWeavers. CrossOver and CodeWeavers are trademarks of CodeWeavers, Inc.
 EOF
+"$ROOT/licenses.sh" "$WORK/deps/sources.txt" "$STAGE/share/licenses" "$OUT/sources"
+cat "$STAGE/share/licenses/LIBRARIES.txt"
 # install_name_tool invalidates signatures; ad-hoc sign every Mach-O file again
 find "$STAGE" -type f \( -name '*.so' -o -name '*.dylib' -o -perm -u+x \) -exec sh -c 'file "$1" | grep -q Mach-O && codesign --force -s - "$1"' _ {} \;
 

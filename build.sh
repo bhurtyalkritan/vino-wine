@@ -63,7 +63,9 @@ echo "== Configure"
 export PATH="$BREW/opt/bison/bin:$BREW/opt/flex/bin:$PATH"
 export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-13.0}
 export CPPFLAGS="-I$BREW/include"
-export LDFLAGS="-L$DEPS -Wl,-rpath,@loader_path/../../ -Wl,-headerpad_max_install_names"
+# the second rpath lets Wine's own build tools (like sfnt2fon, which needs FreeType) run during the build;
+# it's removed again before packaging
+export LDFLAGS="-L$DEPS -Wl,-rpath,@loader_path/../../ -Wl,-rpath,$DEPS -Wl,-headerpad_max_install_names"
 export FREETYPE_CFLAGS="$(pkg-config --cflags freetype2)" FREETYPE_LIBS="-L$DEPS -lfreetype"
 export GNUTLS_CFLAGS="$(pkg-config --cflags gnutls)" GNUTLS_LIBS="-L$DEPS -lgnutls"
 export SDL2_CFLAGS="$(pkg-config --cflags sdl2)" SDL2_LIBS="-L$DEPS -lSDL2"
@@ -104,6 +106,12 @@ vino-wine is not affiliated with or endorsed by CodeWeavers. CrossOver and CodeW
 EOF
 "$ROOT/licenses.sh" "$WORK/deps/sources.txt" "$STAGE/share/licenses" "$OUT/sources"
 cat "$STAGE/share/licenses/LIBRARIES.txt"
+# drop the build-machine rpath from everything we ship
+find "$STAGE" -type f \( -name '*.so' -o -name '*.dylib' -o -perm -u+x \) -exec sh -c \
+    'file "$1" | grep -q Mach-O && install_name_tool -delete_rpath "$2" "$1" 2>/dev/null; true' _ {} "$DEPS" \;
+if find "$STAGE" -type f -exec sh -c 'file "$1" | grep -q Mach-O && otool -l "$1" | grep -q "path $2 "' _ {} "$DEPS" \; -print | grep -q .; then
+    echo "A shipped file still points at the build folder" >&2; exit 1
+fi
 # install_name_tool invalidates signatures; ad-hoc sign every Mach-O file again
 find "$STAGE" -type f \( -name '*.so' -o -name '*.dylib' -o -perm -u+x \) -exec sh -c 'file "$1" | grep -q Mach-O && codesign --force -s - "$1"' _ {} \;
 

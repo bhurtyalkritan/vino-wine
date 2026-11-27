@@ -5,7 +5,8 @@ set -euo pipefail
 
 CX_VERSION=${CX_VERSION:-26.1.0}
 CX_SHA256=${CX_SHA256:-e4ec87d5821a009dd1f1d2e36ffe2e24b8fcbae9516375ea42f95a16928ab8fa}
-LLVM_MINGW=llvm-mingw-20261104-ucrt-macos-universal
+LLVM_MINGW_TAG=20261104
+LLVM_MINGW=llvm-mingw-$LLVM_MINGW_TAG-ucrt-macos-universal
 LLVM_MINGW_SHA256=66cbd5178c4a71b0d473e68ede172f8eb7d15d023e67f39201d0a69e21f6bf3c
 ROOT=$(cd "$(dirname "$0")" && pwd)
 WORK=$ROOT/work
@@ -28,7 +29,7 @@ echo "== Windows-side compiler: clang (llvm-mingw), the same compiler family as 
 # with gcc here, Apple's clang on the Mac side reads small arguments (BOOLEAN) that gcc never widened,
 # and Wine crashes while creating its first bottle
 TC=$WORK/$LLVM_MINGW.tar.xz
-[ -f "$TC" ] || curl -fL -o "$TC" "https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW#llvm-mingw-}/$LLVM_MINGW.tar.xz"
+[ -f "$TC" ] || curl -fL -o "$TC" "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_TAG/$LLVM_MINGW.tar.xz"
 echo "$LLVM_MINGW_SHA256  $TC" | shasum -a 256 -c
 [ -d "$WORK/$LLVM_MINGW" ] || tar xJf "$TC" -C "$WORK"
 

@@ -3,7 +3,8 @@
 The Wine that [Vino](https://github.com/bhurtyalkritan/vino) uses: CodeWeavers' CrossOver Wine, built for macOS.
 
 Compared with WineHQ's Wine, it adds CodeWeavers' fixes for specific games and apps, and **MSync**, which makes many games run
-smoother by using macOS's own synchronisation (turn it on with `WINEMSYNC=1`).
+smoother by using macOS's own synchronisation (turn it on with `WINEMSYNC=1`). It also includes Wine Mono and Wine Gecko,
+so .NET apps and built-in web views work and a new bottle never stops to ask to download them.
 
 ## Releases
 
@@ -11,6 +12,7 @@ Each release has:
 
 - `vino-wine-<version>.tar.xz`: a self-contained Wine folder (`bin/wine`, `lib`, `share`), and its `.sha256`
 - `crossover-sources-<version>.tar.gz`: the exact CodeWeavers source it was built from
+- `wine-mono-*-src.tar.xz`, `wine-gecko-*-src.tar.xz` and the (L)GPL libraries' source
 
 ## Building
 

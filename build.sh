@@ -115,16 +115,44 @@ fi
 # install_name_tool invalidates signatures; ad-hoc sign every Mach-O file again
 find "$STAGE" -type f \( -name '*.so' -o -name '*.dylib' -o -perm -u+x \) -exec sh -c 'file "$1" | grep -q Mach-O && codesign --force -s - "$1"' _ {} \;
 
+echo "== Wine Mono and Gecko (.NET and the web view), so a new bottle doesn't stop to ask to download them"
+# the versions this Wine expects; without them wineboot opens an install dialog and waits for a click forever
+ver() { sed -nE "s/^#define[[:space:]]+$1[[:space:]]+\"([^\"]+)\".*/\1/p" "$WORK/sources/wine/$2"; }
+MONO=$(ver WINE_MONO_VERSION dlls/mscoree/mscoree_private.h)
+GECKO=$(ver GECKO_VERSION dlls/appwiz.cpl/addons.c)
+[ -n "$MONO" ] && [ -n "$GECKO" ] || { echo "Couldn't find the Mono/Gecko versions in the Wine source" >&2; exit 1; }
+fetch() { [ -f "$WORK/$(basename "$1")" ] || curl -fL -o "$WORK/$(basename "$1")" "$1"; }
+mkdir -p "$STAGE/share/wine/mono" "$STAGE/share/wine/gecko"
+fetch "https://dl.winehq.org/wine/wine-mono/$MONO/wine-mono-$MONO-x86.tar.xz"
+tar xJf "$WORK/wine-mono-$MONO-x86.tar.xz" -C "$STAGE/share/wine/mono"
+for arch in x86 x86_64; do
+    fetch "https://dl.winehq.org/wine/wine-gecko/$GECKO/wine-gecko-$GECKO-$arch.tar.xz"
+    tar xJf "$WORK/wine-gecko-$GECKO-$arch.tar.xz" -C "$STAGE/share/wine/gecko"
+done
+# their source goes up with each release, like the other bundled (L)GPL/MPL code
+fetch "https://dl.winehq.org/wine/wine-mono/$MONO/wine-mono-$MONO-src.tar.xz"
+fetch "https://dl.winehq.org/wine/wine-gecko/$GECKO/wine-gecko-$GECKO-src.tar.xz"
+cp "$WORK/wine-mono-$MONO-src.tar.xz" "$WORK/wine-gecko-$GECKO-src.tar.xz" "$OUT/sources/"
+echo "Also bundled: Wine Mono $MONO and Wine Gecko $GECKO from WineHQ (share/wine), with their source attached to the release." \
+    >> "$STAGE/share/licenses/SOURCE.txt"
+
 echo "== Self-test"
 "$STAGE/bin/wine" --version
 export WINEPREFIX=$WORK/test-prefix WINEDEBUG=err+all,err+font
 rm -rf "$WINEPREFIX"
-"$STAGE/bin/wine" wineboot -i 2>&1 | tail -5
-out=$("$STAGE/bin/wine" cmd /c echo vino-wine-ok 2>&1)
-echo "$out" | tail -5
-echo "$out" | grep -q vino-wine-ok
-if "$STAGE/bin/wine" cmd /c echo 2>&1 | grep -i 'cannot find the freetype'; then echo "FreeType didn't load" >&2; exit 1; fi
-WINEMSYNC=1 "$STAGE/bin/wine" cmd /c echo msync-ok 2>&1 | grep -q msync-ok
+LOG=$WORK/selftest.log
+# each step gets 10 minutes, and output goes to a file: a pipe would stay open as long as wineserver runs
+w() {
+    perl -e 'alarm shift; exec @ARGV' 600 "$STAGE/bin/wine" "$@" > "$LOG" 2>&1 && return
+    tail -20 "$LOG"; echo "wine $* failed or hung" >&2; "$STAGE/bin/wineserver" -k || true; exit 1
+}
+w wineboot -i
+tail -5 "$LOG"
+w cmd /c echo vino-wine-ok
+grep -q vino-wine-ok "$LOG"
+if grep -i 'cannot find the freetype' "$LOG"; then echo "FreeType didn't load" >&2; exit 1; fi
+WINEMSYNC=1 w cmd /c echo msync-ok
+grep -q msync-ok "$LOG"
 "$STAGE/bin/wineserver" -k || true
 
 echo "== Archive"

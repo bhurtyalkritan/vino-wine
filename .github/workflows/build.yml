@@ -12,7 +12,7 @@ jobs:
   build:
     # Wine for macOS is x86_64 code (Apple Silicon Macs run it through Rosetta), so build on Intel
     runs-on: macos-15-intel
-    timeout-minutes: 300
+    timeout-minutes: 120  # the build takes about 50 minutes; anything longer is a hang
     steps:
       - uses: actions/checkout@v4
 
@@ -34,4 +34,4 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" out/vino-wine-*.tar.xz out/vino-wine-*.tar.xz.sha256 work/crossover-sources-*.tar.gz out/sources/* \
             --title "vino-wine $GITHUB_REF_NAME" \
-            --notes "CodeWeavers' CrossOver Wine, built unmodified for Vino, with MSync. Wine is LGPL 2.1; the exact source used is attached (crossover-sources-*.tar.gz), along with the source of each bundled (L)GPL library. The bundled libraries' licenses are in share/licenses. vino-wine is not affiliated with or endorsed by CodeWeavers; CrossOver and CodeWeavers are trademarks of CodeWeavers, Inc."
+            --notes "CodeWeavers' CrossOver Wine, built unmodified for Vino, with MSync, plus Wine Mono and Wine Gecko. Wine is LGPL 2.1; the exact source used is attached (crossover-sources-*.tar.gz), along with the source of Mono, Gecko and each bundled (L)GPL library. The bundled libraries' licenses are in share/licenses. vino-wine is not affiliated with or endorsed by CodeWeavers; CrossOver and CodeWeavers are trademarks of CodeWeavers, Inc."

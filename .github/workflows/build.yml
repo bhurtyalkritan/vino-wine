@@ -17,12 +17,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install build tools and libraries
-        run: brew install bison flex mingw-w64 pkgconf freetype gnutls sdl2 molten-vk gettext
+        run: brew install bison flex pkgconf freetype gnutls sdl2 molten-vk gettext
 
       - name: Build, package and self-test
         run: ./build.sh
 
       - uses: actions/upload-artifact@v4
+        if: always()  # a package that fails its self-test can still be debugged
         with:
           name: vino-wine
           path: out/vino-wine-*.tar.xz*

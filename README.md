@@ -20,7 +20,7 @@ Each release has:
 libraries Wine needs, packages it and runs a self-test. It needs an Intel Mac (or Rosetta) with Homebrew:
 
 ```
-brew install bison flex mingw-w64 pkgconf freetype gnutls sdl2 molten-vk gettext
+brew install bison flex pkgconf freetype gnutls sdl2 molten-vk gettext
 ./build.sh
 ```
 

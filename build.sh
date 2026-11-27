@@ -5,6 +5,8 @@ set -euo pipefail
 
 CX_VERSION=${CX_VERSION:-26.1.0}
 CX_SHA256=${CX_SHA256:-e4ec87d5821a009dd1f1d2e36ffe2e24b8fcbae9516375ea42f95a16928ab8fa}
+LLVM_MINGW=llvm-mingw-20261104-ucrt-macos-universal
+LLVM_MINGW_SHA256=66cbd5178c4a71b0d473e68ede172f8eb7d15d023e67f39201d0a69e21f6bf3c
 ROOT=$(cd "$(dirname "$0")" && pwd)
 WORK=$ROOT/work
 OUT=$ROOT/out
@@ -21,6 +23,14 @@ SRC=$WORK/crossover-sources-$CX_VERSION.tar.gz
 [ -f "$SRC" ] || curl -fL -o "$SRC" "https://media.codeweavers.com/pub/crossover/source/crossover-sources-$CX_VERSION.tar.gz"
 echo "$CX_SHA256  $SRC" | shasum -a 256 -c
 [ -d "$WORK/sources/wine" ] || tar xzf "$SRC" -C "$WORK"
+
+echo "== Windows-side compiler: clang (llvm-mingw), the same compiler family as the Mac side"
+# with gcc here, Apple's clang on the Mac side reads small arguments (BOOLEAN) that gcc never widened,
+# and Wine crashes while creating its first bottle
+TC=$WORK/$LLVM_MINGW.tar.xz
+[ -f "$TC" ] || curl -fL -o "$TC" "https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW#llvm-mingw-}/$LLVM_MINGW.tar.xz"
+echo "$LLVM_MINGW_SHA256  $TC" | shasum -a 256 -c
+[ -d "$WORK/$LLVM_MINGW" ] || tar xJf "$TC" -C "$WORK"
 
 echo "== Libraries Wine loads, renamed to @rpath so they're found inside the package on any Mac"
 # Wine records each library's install name at configure time and loads it by that name later,
@@ -60,7 +70,7 @@ ln -sf libSDL2-2.0.0.dylib "$DEPS/libSDL2.dylib"
 ls "$DEPS"
 
 echo "== Configure"
-export PATH="$BREW/opt/bison/bin:$BREW/opt/flex/bin:$PATH"
+export PATH="$WORK/$LLVM_MINGW/bin:$BREW/opt/bison/bin:$BREW/opt/flex/bin:$PATH"
 export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-13.0}
 export CPPFLAGS="-I$BREW/include"
 # the second rpath lets Wine's own build tools (like sfnt2fon, which needs FreeType) run during the build;
@@ -72,7 +82,7 @@ export SDL2_CFLAGS="$(pkg-config --cflags sdl2)" SDL2_LIBS="-L$DEPS -lSDL2"
 mkdir -p "$WORK/build"
 cd "$WORK/build"
 [ -f Makefile ] || "$WORK/sources/wine/configure" --prefix=/ \
-    --enable-archs=i386,x86_64 --with-mingw --without-x --with-vulkan --with-sdl --with-freetype --with-gnutls \
+    --enable-archs=i386,x86_64 --with-mingw=llvm-mingw --without-x --with-vulkan --with-sdl --with-freetype --with-gnutls \
     --without-gstreamer --without-cups --without-krb5 --without-sane --without-gphoto --without-pcap \
     --without-pcsclite --without-netapi --without-capi --without-oss --without-pulse --without-alsa \
     --without-dbus --without-udev --without-usb --without-v4l2 --without-wayland --without-fontconfig \
@@ -136,6 +146,10 @@ cp "$WORK/wine-mono-$MONO-src.tar.xz" "$WORK/wine-gecko-$GECKO-src.tar.xz" "$OUT
 echo "Also bundled: Wine Mono $MONO and Wine Gecko $GECKO from WineHQ (share/wine), with their source attached to the release." \
     >> "$STAGE/share/licenses/SOURCE.txt"
 
+echo "== Archive"
+tar -C "$OUT" -cJf "$OUT/vino-wine-$CX_VERSION.tar.xz" vino-wine
+(cd "$OUT" && shasum -a 256 "vino-wine-$CX_VERSION.tar.xz" > "vino-wine-$CX_VERSION.tar.xz.sha256" && cat "vino-wine-$CX_VERSION.tar.xz.sha256")
+
 echo "== Self-test"
 "$STAGE/bin/wine" --version
 export WINEPREFIX=$WORK/test-prefix WINEDEBUG=err+all,err+font
@@ -155,6 +169,3 @@ WINEMSYNC=1 w cmd /c echo msync-ok
 grep -q msync-ok "$LOG"
 "$STAGE/bin/wineserver" -k || true
 
-echo "== Archive"
-tar -C "$OUT" -cJf "$OUT/vino-wine-$CX_VERSION.tar.xz" vino-wine
-(cd "$OUT" && shasum -a 256 "vino-wine-$CX_VERSION.tar.xz" > "vino-wine-$CX_VERSION.tar.xz.sha256" && cat "vino-wine-$CX_VERSION.tar.xz.sha256")
